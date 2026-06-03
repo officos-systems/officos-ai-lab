@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OFFICOS AI LAB</title>
+<style>
+  :root{
+    --bg:#070a14;
+    --ink:#e6e9f2; --sub:#9aa3bd; --muted:#5d6685;
+    --line:rgba(255,255,255,.08); --line-strong:rgba(255,255,255,.16);
+    --card:rgba(255,255,255,.035);
+    --todo1:#ff6b6b; --todo2:#ff9a4d;
+    --done1:#2dd4bf; --done2:#5eead4;
+    --news1:#60a5fa; --news2:#a78bfa;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Consolas,"Courier New",monospace;
+    --sans:"Inter","SF Pro Display",system-ui,"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic UI",Meiryo,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0; min-height:100%;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+    position:relative;
+    overflow-x:hidden;
+  }
+  /* ambient glows + dot grid */
+  body::before{
+    content:""; position:fixed; inset:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(620px 420px at 12% -8%, rgba(167,139,250,.20), transparent 60%),
+      radial-gradient(680px 460px at 88% -10%, rgba(45,212,191,.16), transparent 60%),
+      radial-gradient(900px 600px at 50% 120%, rgba(96,165,250,.12), transparent 55%);
+  }
+  body::after{
+    content:""; position:fixed; inset:0; z-index:0; pointer-events:none; opacity:.5;
+    background-image:radial-gradient(rgba(255,255,255,.05) 1px, transparent 1px);
+    background-size:26px 26px;
+    -webkit-mask-image:radial-gradient(circle at 50% 30%, #000 0%, transparent 80%);
+            mask-image:radial-gradient(circle at 50% 30%, #000 0%, transparent 80%);
+  }
+  .wrap{position:relative; z-index:1;}
+
+  /* header */
+  header.app{
+    position:sticky; top:0; z-index:5;
+    display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+    padding:16px 24px;
+    background:rgba(8,11,20,.72);
+    backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+    border-bottom:1px solid var(--line);
+  }
+  .brand{display:flex; align-items:center; gap:12px;}
+  .glyph{
+    width:34px; height:34px; border-radius:10px; flex:none;
+    background:conic-gradient(from 140deg, var(--news2), var(--done1), var(--news1), var(--news2));
+    box-shadow:0 0 22px rgba(96,165,250,.45);
+    position:relative;
+  }
+  .glyph::after{
+    content:""; position:absolute; inset:6px; border-radius:6px;
+    background:#070a14;
+    box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.18);
+  }
+  .logo{
+    font-size:19px; font-weight:800; letter-spacing:.06em;
+    background:linear-gradient(92deg,#fff,#c7d2fe 40%,#5eead4 78%,#fff);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .tagline{font-size:12.5px; color:var(--sub); letter-spacing:.02em;}
+  .spacer{margin-left:auto;}
+  .live{
+    display:inline-flex; align-items:center; gap:7px;
+    font:600 11px/1 var(--mono); letter-spacing:.12em; text-transform:uppercase;
+    color:#5eead4; padding:6px 11px; border-radius:999px;
+    background:rgba(45,212,191,.08); border:1px solid rgba(45,212,191,.28);
+  }
+  .live .pulse{width:7px;height:7px;border-radius:50%;background:#2dd4bf; box-shadow:0 0 0 0 rgba(45,212,191,.6); animation:pulse 1.8s infinite;}
+  @keyframes pulse{70%{box-shadow:0 0 0 7px rgba(45,212,191,0);}100%{box-shadow:0 0 0 0 rgba(45,212,191,0);}}
+  .members{display:flex; gap:-8px;}
+  .ava{
+    width:30px;height:30px;border-radius:50%; margin-left:-8px;
+    display:grid; place-items:center; font:700 11px var(--sans); color:#0b0f1c;
+    border:2px solid #0b0f1c;
+  }
+  .ava:first-child{margin-left:0;}
+  .ava.a{background:linear-gradient(135deg,#60a5fa,#a78bfa);}
+  .ava.b{background:linear-gradient(135deg,#2dd4bf,#5eead4);}
+  .ava.c{background:linear-gradient(135deg,#ff9a4d,#ff6b6b);}
+
+  /* board */
+  .board{
+    display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px;
+    padding:22px 24px 8px; max-width:1500px; margin:0 auto;
+  }
+  @media(max-width:480px){ .board{grid-template-columns:1fr;} }
+
+  .col{
+    background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.018));
+    border:1px solid var(--line); border-radius:18px;
+    display:flex; flex-direction:column; overflow:hidden;
+    box-shadow:0 24px 60px -30px rgba(0,0,0,.8);
+  }
+  .col-head{
+    padding:15px 16px 14px; display:flex; align-items:center; gap:10px;
+    border-bottom:1px solid var(--line); position:relative;
+  }
+  .col-head::after{content:""; position:absolute; left:0; right:0; bottom:-1px; height:1px;}
+  .col.todo .col-head::after{background:linear-gradient(90deg,var(--todo1),transparent 70%);}
+  .col.done .col-head::after{background:linear-gradient(90deg,var(--done1),transparent 70%);}
+  .col.news .col-head::after{background:linear-gradient(90deg,var(--news1),transparent 70%);}
+  .ic{width:30px;height:30px;border-radius:9px; flex:none; position:relative;}
+  .ic::after{content:""; position:absolute; inset:6px; border-radius:5px; background:var(--bg); box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.18);}
+  .col.todo .ic{background:linear-gradient(135deg,var(--todo1),var(--todo2)); box-shadow:0 0 18px rgba(255,107,107,.42);}
+  .col.done .ic{background:linear-gradient(135deg,var(--done1),var(--done2)); box-shadow:0 0 18px rgba(45,212,191,.42);}
+  .col.news .ic{background:linear-gradient(135deg,var(--news1),var(--news2)); box-shadow:0 0 18px rgba(96,165,250,.42);}
+  .col-title{font-size:14.5px; font-weight:700; letter-spacing:.01em;}
+  .col-sub{font:500 11px var(--mono); color:var(--muted); margin-top:2px; letter-spacing:.04em;}
+  .count{
+    margin-left:auto; font:700 11px var(--mono); color:var(--sub);
+    background:rgba(255,255,255,.05); border:1px solid var(--line);
+    border-radius:999px; padding:3px 10px;
+  }
+
+  .col-body{padding:14px; display:flex; flex-direction:column; gap:12px; flex:1;}
+
+  .card{
+    position:relative; border:1px solid var(--line); border-radius:14px;
+    padding:14px 15px 13px; background:var(--card);
+    transition:transform .18s ease, border-color .18s ease, box-shadow .18s ease, background .18s ease;
+    overflow:hidden;
+  }
+  .card::before{
+    content:""; position:absolute; left:0; top:0; bottom:0; width:3px; opacity:.85;
+  }
+  .col.todo .card::before{background:linear-gradient(180deg,var(--todo1),var(--todo2));}
+  .col.done .card::before{background:linear-gradient(180deg,var(--done1),var(--done2));}
+  .col.news .card::before{background:linear-gradient(180deg,var(--news1),var(--news2));}
+  .card:hover{
+    transform:translateY(-3px);
+    border-color:var(--line-strong);
+    background:rgba(255,255,255,.06);
+    box-shadow:0 18px 40px -22px rgba(0,0,0,.9);
+  }
+  .card .title{font-weight:700; font-size:14.5px; margin:0 0 7px; letter-spacing:.01em;}
+  .card .desc{font-size:13px; color:var(--sub); margin:0 0 11px; line-height:1.62;}
+
+  .meta{display:flex; flex-wrap:wrap; gap:7px; align-items:center; font:500 11.5px var(--mono);}
+  .who{
+    display:inline-flex; align-items:center; gap:6px;
+    background:rgba(255,255,255,.05); border:1px solid var(--line);
+    border-radius:7px; padding:3px 8px; color:var(--sub);
+  }
+  .who .d{width:6px;height:6px;border-radius:50%;}
+  .who.kumada .d{background:#ff7a5c;} .who.naka .d{background:#5eead4;} .who.ishi .d{background:#7ca9ff;}
+  .date{color:var(--muted);}
+  .due{color:#ffb4a3;}
+
+  .status{
+    margin-left:auto; font:700 10.5px var(--mono); letter-spacing:.06em;
+    border-radius:7px; padding:3px 9px; text-transform:uppercase;
+  }
+  .s-todo{background:rgba(255,107,107,.12); color:#ff9d8e; border:1px solid rgba(255,107,107,.3);}
+  .s-doing{background:rgba(250,204,21,.12); color:#fcd34d; border:1px solid rgba(250,204,21,.3);}
+  .s-done{background:rgba(45,212,191,.12); color:#5eead4; border:1px solid rgba(45,212,191,.3);}
+
+  .tags{margin-top:11px; display:flex; flex-wrap:wrap; gap:6px;}
+  .tag{font:600 11px var(--mono); color:#9db4ff; background:rgba(96,165,250,.10); border:1px solid rgba(96,165,250,.22); border-radius:999px; padding:2px 9px;}
+
+  .add{
+    margin-top:2px; border:1px dashed var(--line-strong); border-radius:12px;
+    padding:11px; text-align:center; color:var(--muted); font:600 12.5px var(--sans);
+    cursor:pointer; transition:.18s; background:rgba(255,255,255,.012);
+  }
+  .add:hover{color:var(--sub); border-color:rgba(255,255,255,.28); background:rgba(255,255,255,.04);}
+
+  /* news */
+  .note{
+    font-size:11.5px; color:var(--sub); line-height:1.6;
+    background:rgba(96,165,250,.06); border:1px solid rgba(96,165,250,.18);
+    border-radius:12px; padding:11px 13px;
+  }
+  .note b{color:#bcd0ff; font-weight:700;}
+  .news-item{
+    position:relative; border:1px solid var(--line); border-radius:14px;
+    padding:13px 15px; background:var(--card);
+    transition:transform .18s ease, border-color .18s ease, background .18s ease;
+  }
+  .news-item:hover{transform:translateY(-3px); border-color:var(--line-strong); background:rgba(255,255,255,.06);}
+  .src{display:inline-flex; align-items:center; gap:7px; font:700 12px var(--mono); color:#bcd0ff;}
+  .src .badge{width:18px;height:18px;border-radius:5px; display:grid;place-items:center; font-size:10px; font-weight:800; color:#06101f; background:linear-gradient(135deg,var(--news1),var(--news2));}
+  .headline{font-size:13px; margin:8px 0 0; line-height:1.55; color:var(--ink);}
+  .time{font:500 11px var(--mono); color:var(--muted); margin-top:9px;}
+  .news-item a.headline{display:block; color:var(--ink); text-decoration:none;}
+  .news-item a.headline:hover{color:#bcd0ff; text-decoration:underline;}
+  #news-list{display:flex; flex-direction:column; gap:12px;}
+
+  footer{
+    max-width:1500px; margin:0 auto; padding:16px 24px 30px;
+    color:var(--muted); font:500 12px var(--mono); letter-spacing:.02em;
+    display:flex; align-items:center; gap:8px;
+  }
+  footer .k{color:var(--sub);}
+
+  /* scrollbar */
+  ::-webkit-scrollbar{width:10px;height:10px;}
+  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12); border-radius:8px; border:2px solid var(--bg);}
+  ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.2);}
+
+  /* ===== 投稿フォーム & 検索（追加） ===== */
+  .poster{
+    border:1px solid var(--line); border-radius:14px; padding:13px;
+    background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.02));
+    display:flex; flex-direction:column; gap:9px;
+  }
+  .poster .ttl{font:700 11px var(--mono); letter-spacing:.12em; color:var(--sub); text-transform:uppercase; display:flex; align-items:center; gap:8px;}
+  .poster .ttl .d{width:8px;height:8px;border-radius:2px; background:linear-gradient(135deg,var(--todo1),var(--todo2)); box-shadow:0 0 10px rgba(255,107,107,.6);}
+  .fi{
+    width:100%; background:rgba(0,0,0,.28); color:var(--ink);
+    border:1px solid var(--line); border-radius:10px; padding:9px 11px;
+    font:500 13px var(--sans); outline:none; transition:border-color .16s, box-shadow .16s;
+  }
+  .fi::placeholder{color:var(--muted);}
+  .fi:focus{border-color:rgba(255,154,77,.55); box-shadow:0 0 0 3px rgba(255,107,107,.15);}
+  textarea.fi{resize:vertical; min-height:52px; line-height:1.55;}
+  .row{display:flex; gap:8px;}
+  .row .fi{flex:1; min-width:0;}
+  select.fi{
+    appearance:none; -webkit-appearance:none; cursor:pointer; padding-right:28px;
+    background-image:linear-gradient(45deg,transparent 50%,var(--sub) 50%),linear-gradient(135deg,var(--sub) 50%,transparent 50%);
+    background-position:calc(100% - 15px) calc(50% - 1px),calc(100% - 10px) calc(50% - 1px);
+    background-size:5px 5px,5px 5px; background-repeat:no-repeat;
+  }
+  select.fi option{background:#0b1020; color:var(--ink);}
+  .btns{display:flex; gap:8px; justify-content:flex-end;}
+  .btn{border:none; border-radius:10px; padding:9px 16px; font:700 12.5px var(--sans); cursor:pointer; transition:.16s;}
+  .btn.primary{color:#06140f; background:linear-gradient(135deg,var(--done1),var(--done2)); box-shadow:0 8px 20px -10px rgba(45,212,191,.9);}
+  .btn.primary:hover{filter:brightness(1.07); transform:translateY(-1px);}
+  .btn.ghost{color:#cdbcff; background:rgba(167,139,250,.12); border:1px solid rgba(167,139,250,.32);}
+  .btn.ghost:hover{background:rgba(167,139,250,.2);}
+  .hint{display:none; font:500 11.5px var(--mono); color:#cdbcff; background:rgba(167,139,250,.08); border:1px solid rgba(167,139,250,.22); border-radius:10px; padding:9px 11px; line-height:1.6;}
+  .hint.show{display:block;}
+  .hint b{color:#e6dcff;}
+  .who.claude .d{background:linear-gradient(135deg,#a78bfa,#60a5fa);}
+
+  .search{position:relative;}
+  .search .fi{padding-left:34px;}
+  .search .mag{position:absolute; left:12px; top:calc(50% - 7px); width:12px;height:12px; border:2px solid var(--muted); border-radius:50%; pointer-events:none;}
+  .search .mag::after{content:""; position:absolute; right:-4px; bottom:-4px; width:7px; height:2px; background:var(--muted); transform:rotate(45deg); border-radius:2px;}
+  .kbase{font:500 11.5px var(--mono); color:var(--sub); background:rgba(45,212,191,.07); border:1px solid rgba(45,212,191,.2); border-radius:10px; padding:9px 11px; line-height:1.6;}
+  .kbase b{color:#9af0e0;}
+  .empty{display:none; font:600 12px var(--mono); color:var(--muted); text-align:center; padding:16px;}
+
+  /* ===== AIマッチング提案ポップアップ（追加） ===== */
+  .matchbtn{
+    display:inline-flex; align-items:center; gap:7px; cursor:pointer;
+    font:700 11px var(--mono); letter-spacing:.1em; text-transform:uppercase; color:#dbe4ff;
+    padding:6px 11px; border-radius:999px;
+    background:linear-gradient(135deg,rgba(96,165,250,.16),rgba(167,139,250,.16));
+    border:1px solid rgba(167,139,250,.4); transition:.16s;
+  }
+  .matchbtn:hover{filter:brightness(1.12); transform:translateY(-1px);}
+  .matchbtn .n{background:linear-gradient(135deg,var(--news1),var(--news2)); color:#06101f; border-radius:999px; padding:1px 7px; font-weight:800;}
+  .toast{
+    position:fixed; right:20px; bottom:20px; z-index:50; width:360px; max-width:calc(100vw - 32px);
+    background:rgba(13,17,30,.92); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+    border:1px solid rgba(167,139,250,.35); border-radius:16px; overflow:hidden;
+    box-shadow:0 30px 70px -24px rgba(0,0,0,.9), 0 0 40px -16px rgba(167,139,250,.5);
+    transform:translateY(140%); opacity:0; transition:transform .42s cubic-bezier(.2,.9,.3,1.25), opacity .35s;
+  }
+  .toast.show{transform:none; opacity:1;}
+  .toast .bar{height:3px; background:linear-gradient(90deg,var(--news1),var(--news2),var(--done1));}
+  .toast .hd{display:flex; align-items:center; gap:9px; padding:13px 15px 9px;}
+  .toast .hd .spark{width:9px;height:9px;border-radius:2px; background:linear-gradient(135deg,var(--news2),var(--done1)); box-shadow:0 0 12px rgba(167,139,250,.8); animation:pulse 1.8s infinite;}
+  .toast .hd .t{font:800 12px var(--mono); letter-spacing:.12em; text-transform:uppercase; background:linear-gradient(92deg,#cdbcff,#9af0e0); -webkit-background-clip:text; background-clip:text; color:transparent;}
+  .toast .x{margin-left:auto; cursor:pointer; color:var(--muted); font-size:18px; line-height:1; padding:0 5px; border-radius:6px;}
+  .toast .x:hover{color:var(--ink); background:rgba(255,255,255,.08);}
+  .toast .body{padding:4px 13px 14px; display:flex; flex-direction:column; gap:10px;}
+  .sug{border:1px solid var(--line); border-radius:12px; padding:11px 12px; background:rgba(255,255,255,.03);}
+  .sug .lk{font:600 12px var(--mono); display:flex; align-items:center; gap:7px; flex-wrap:wrap;}
+  .sug .lk .task{color:#ff9d8e;}
+  .sug .lk .arr{color:var(--muted);}
+  .sug .lk .from{padding:1px 7px; border-radius:6px; font-weight:700;}
+  .sug .lk .from.news{color:#9db4ff; background:rgba(96,165,250,.12); border:1px solid rgba(96,165,250,.28);}
+  .sug .lk .from.done{color:#5eead4; background:rgba(45,212,191,.12); border:1px solid rgba(45,212,191,.28);}
+  .sug .why{font-size:12.5px; color:var(--sub); line-height:1.55; margin:8px 0 9px;}
+  .sug .acts{display:flex; gap:7px; justify-content:flex-end;}
+  .sug .mini{font:700 11.5px var(--sans); border:none; cursor:pointer; border-radius:8px; padding:6px 11px;}
+  .sug .mini.go{color:#06140f; background:linear-gradient(135deg,var(--done1),var(--done2));}
+  .sug .mini.skip{color:var(--sub); background:rgba(255,255,255,.05); border:1px solid var(--line);}
+  .sug .mini:hover{filter:brightness(1.08);}
+  @keyframes flash{0%,100%{box-shadow:0 0 0 0 rgba(255,154,77,0);} 30%{box-shadow:0 0 0 3px rgba(255,154,77,.55), 0 0 30px rgba(255,154,77,.4);}}
+  .card.flash{animation:flash 1.4s ease 2;}
+
+  /* ===== 3列を各々独立スクロール（PC幅。狭い画面では従来どおりページ全体スクロール） ===== */
+  @media(min-width:481px){
+    html,body{height:100%;}
+    body{overflow:hidden;}
+    .wrap{height:100vh; display:flex; flex-direction:column;}
+    header.app{flex:0 0 auto;}
+    .board{flex:1 1 auto; min-height:0; overflow:hidden; grid-template-rows:minmax(0,1fr); width:100%;}
+    .col{min-height:0;}
+    .col-head{flex:0 0 auto;}
+    .col-body{overflow-y:auto; min-height:0;}
+    .col-body > *{flex-shrink:0;}   /* 中身を縮めず、あふれたら列ごとにスクロール（カードの切れ防止） */
+    footer{flex:0 0 auto;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="app">
+  <div class="brand">
+    <div class="glyph"></div>
+    <div>
+      <div class="logo">OFFICOS&nbsp;AI&nbsp;LAB</div>
+      <div class="tagline">課題 / 出来た事 / AIニュースを1画面で</div>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <span class="matchbtn" id="matchbtn">AI Match <span class="n">2</span></span>
+  <span class="live"><span class="pulse"></span>live</span>
+  <div class="members" title="石川 / 中村 / 熊田">
+    <span class="ava a">石</span>
+    <span class="ava b">中</span>
+    <span class="ava c">熊</span>
+  </div>
+</header>
+
+<div class="board">
+
+  <!-- 左：出来てない事（課題） -->
+  <section class="col todo">
+    <div class="col-head">
+      <span class="ic"></span>
+      <div>
+        <div class="col-title">出来てない事</div>
+        <div class="col-sub">// backlog</div>
+      </div>
+      <span class="count">4</span>
+    </div>
+    <div class="col-body">
+
+      <div class="poster" id="poster">
+        <div class="ttl"><span class="d"></span>新規ポスト</div>
+        <input class="fi" id="p-title" placeholder="タイトル（例：レインズ連携の調査）">
+        <textarea class="fi" id="p-desc" placeholder="内容（どんな課題か・何が必要か）"></textarea>
+        <div class="row">
+          <select class="fi" id="p-author" aria-label="投稿者">
+            <option value="熊田">投稿者：熊田</option>
+            <option value="中村">投稿者：中村</option>
+            <option value="石川">投稿者：石川</option>
+            <option value="Claude">投稿者：Claude</option>
+          </select>
+          <select class="fi" id="p-status" aria-label="進捗">
+            <option value="未着手">進捗：未着手</option>
+            <option value="対応中">進捗：対応中</option>
+            <option value="完了">進捗：完了</option>
+          </select>
+        </div>
+        <input class="fi" id="p-due" placeholder="期限（任意・例 6/15）">
+        <div class="btns">
+          <button class="btn ghost" id="p-claude" type="button">Claudeで作成</button>
+          <button class="btn primary" id="p-post" type="button">投稿する</button>
+        </div>
+        <div class="hint" id="p-hint">本番では、チャットで Claude に「課題追加：◯◯」と頼むだけで <b>投稿者＝Claude・日付＝自動</b> でこの列に入ります。例が入った状態で「投稿する」を押すと動きが見られます。</div>
+      </div>
+
+      <div class="card">
+        <p class="title">土地バンクAPI連携</p>
+        <p class="desc">外部APIの仕様確認がまだ。どの項目が取れるか調査が必要。</p>
+        <div class="meta">
+          <span class="who kumada"><span class="d"></span>熊田</span>
+          <span class="due">due 6/10</span>
+          <span class="status s-todo">未着手</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <p class="title">日報・紹介テーブルの新設</p>
+        <p class="desc">売買UIで日報・紹介を扱うのに、保存先のテーブルがまだ無い。</p>
+        <div class="meta">
+          <span class="who naka"><span class="d"></span>中村</span>
+          <span class="due">due 6/5</span>
+          <span class="status s-doing">対応中</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <p class="title">顧客管理DBの名寄せルール</p>
+        <p class="desc">同じお客様の重複をどう判定するか、基準を3人で決める。</p>
+        <div class="meta">
+          <span class="who ishi"><span class="d"></span>石川</span>
+          <span class="date">due 未定</span>
+          <span class="status s-todo">未着手</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <p class="title">売買UIの本番テーブル統合</p>
+        <p class="desc">作り直したSPAを本番DBに合わせて反映する前の最終チェック。</p>
+        <div class="meta">
+          <span class="who kumada"><span class="d"></span>熊田</span>
+          <span class="due">due 今週</span>
+          <span class="status s-doing">対応中</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- 真ん中：出来た事 -->
+  <section class="col done">
+    <div class="col-head">
+      <span class="ic"></span>
+      <div>
+        <div class="col-title">出来た事</div>
+        <div class="col-sub">// solved.log</div>
+      </div>
+      <span class="count">4</span>
+    </div>
+    <div class="col-body">
+
+      <div class="search">
+        <span class="mag"></span>
+        <input class="fi" id="kb-search" placeholder="出来た事を検索（例：クロール / Git / 査定）">
+      </div>
+      <div class="kbase">ここは「育つナレッジ基盤」。投稿はタグで整理され、<b>後からClaudeに質問すると関連ページをまとめて回答</b>します（LLM Wiki方式）。</div>
+
+      <div class="card">
+        <p class="title">アットホームのクロール</p>
+        <p class="desc">最初はログイン・ページ構造の都合で取得できなかったが、手順を工夫して物件情報を取得できるようになった。</p>
+        <div class="meta">
+          <span class="who kumada"><span class="d"></span>熊田</span>
+          <span class="date">6/1</span>
+          <span class="status s-done">完了</span>
+        </div>
+        <div class="tags"><span class="tag">#クロール</span><span class="tag">#物件収集</span></div>
+      </div>
+
+      <div class="card">
+        <p class="title">毎日の作業ログを自動保存</p>
+        <p class="desc">Claudeの作業ログを、手動メモから「毎日18:00にGitへ自動push」に切り替え。何を直したか・どのツールで解決したかが自動で残る。</p>
+        <div class="meta">
+          <span class="who kumada"><span class="d"></span>熊田</span>
+          <span class="date">6/1</span>
+          <span class="status s-done">完了</span>
+        </div>
+        <div class="tags"><span class="tag">#自動化</span><span class="tag">#ログ</span><span class="tag">#Git</span></div>
+      </div>
+
+      <div class="card">
+        <p class="title">売買SPAを実DBに合わせて書き換え</p>
+        <p class="desc">勤怠・経費・有給・カレンダー・通知を本番テーブル準拠に修正。画面と実データのズレを解消。</p>
+        <div class="meta">
+          <span class="who naka"><span class="d"></span>中村</span>
+          <span class="date">5/29</span>
+          <span class="status s-done">完了</span>
+        </div>
+        <div class="tags"><span class="tag">#売買UI</span><span class="tag">#DB</span></div>
+      </div>
+
+      <div class="card">
+        <p class="title">ギガファイル便の自動ダウンロード手順</p>
+        <p class="desc">セッションCookieからdownload.phpを叩く手順を確立。和名ZIPの文字化けもCP932で解凍して回避。</p>
+        <div class="meta">
+          <span class="who kumada"><span class="d"></span>熊田</span>
+          <span class="date">5月</span>
+          <span class="status s-done">完了</span>
+        </div>
+        <div class="tags"><span class="tag">#効率化</span><span class="tag">#手順化</span></div>
+      </div>
+
+      <div class="add">＋ 出来た事を追加（18時のGitログから自動でも可）</div>
+    </div>
+  </section>
+
+  <!-- 右：AIニュース -->
+  <section class="col news">
+    <div class="col-head">
+      <span class="ic"></span>
+      <div>
+        <div class="col-title">AIニュース</div>
+        <div class="col-sub">// feed: X / RSS</div>
+      </div>
+      <span class="count">live</span>
+    </div>
+    <div class="col-body">
+
+      <div class="note" id="news-status">最新のAIニュースを取得中…</div>
+      <div id="news-list"></div>
+
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  <span class="k">officos@hub</span> :~ これは見た目のサンプル（データは仮）。次は OFFICOS の DB（Supabase）と接続して、3人で投稿・保存・共有できるようにします。
+</footer>
+
+</div>
+
+<div class="toast" id="toast">
+  <div class="bar"></div>
+  <div class="hd"><span class="spark"></span><span class="t">AI Match ・ 提案</span><span class="x" id="toast-x">×</span></div>
+  <div class="body">
+    <div class="sug">
+      <div class="lk"><span class="task">土地バンクAPI連携</span><span class="arr">←</span><span class="from news">AIニュース</span></div>
+      <div class="why">「MCPで外部API接続が簡単に」のニュースが、この課題（外部API連携の調査）に使えそうです。</div>
+      <div class="acts"><button class="mini skip" type="button">後で</button><button class="mini go" type="button" data-task="土地バンクAPI連携">課題を見る</button></div>
+    </div>
+    <div class="sug">
+      <div class="lk"><span class="task">日報・紹介テーブルの新設</span><span class="arr">←</span><span class="from done">出来た事</span></div>
+      <div class="why">過去の「売買SPAを実DBに合わせて書き換え」の手順が、この新設作業に流用できそうです。</div>
+      <div class="acts"><button class="mini skip" type="button">後で</button><button class="mini go" type="button" data-task="日報・紹介テーブルの新設">課題を見る</button></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function(){
+  var whoClass={'熊田':'kumada','中村':'naka','石川':'ishi','Claude':'claude'};
+  var statusClass={'未着手':'s-todo','対応中':'s-doing','完了':'s-done'};
+  function today(){var d=new Date();return (d.getMonth()+1)+'/'+d.getDate();}
+  function esc(s){var e=document.createElement('div');e.textContent=s;return e.innerHTML;}
+  function $(id){return document.getElementById(id);}
+
+  var poster=$('poster'), todoCol=poster.closest('.col'), countEl=todoCol.querySelector('.count');
+
+  // --- Supabase 接続（ライブラリ未読込/オフライン時は supa=null となり、自動でデモ動作にフォールバック） ---
+  var SUPA_URL='https://fjpjcnqwcihpqcjlvmcd.supabase.co';
+  var SUPA_KEY='sb_publishable_LqGyaTxUxRbz35Z7xEUGyw_Iq6noO7z';
+  var supa=(window.supabase && window.supabase.createClient) ? window.supabase.createClient(SUPA_URL,SUPA_KEY) : null;
+
+  function fmtDate(iso){ if(!iso) return today(); var d=new Date(iso); return isNaN(d.getTime())?today():(d.getMonth()+1)+'/'+d.getDate(); }
+  function makeCard(t){
+    var a=t.author||'熊田', s=t.status||'未着手';
+    var card=document.createElement('div'); card.className='card';
+    card.innerHTML='<p class="title">'+esc(t.title||'')+'</p>'+
+      (t.body?'<p class="desc">'+esc(t.body)+'</p>':'')+
+      '<div class="meta">'+
+        '<span class="who '+(whoClass[a]||'')+'"><span class="d"></span>'+esc(a)+'</span>'+
+        '<span class="date">'+fmtDate(t.created_at)+'</span>'+
+        (t.due?'<span class="due">due '+esc(t.due)+'</span>':'')+
+        '<span class="status '+(statusClass[s]||'')+'">'+esc(s)+'</span>'+
+      '</div>';
+    return card;
+  }
+  function renderTasks(rows){
+    [].slice.call(todoCol.querySelectorAll('.card')).forEach(function(c){c.remove();});
+    var frag=document.createDocumentFragment();
+    rows.forEach(function(t){ frag.appendChild(makeCard(t)); });
+    poster.after(frag);
+    countEl.textContent=todoCol.querySelectorAll('.card').length;
+  }
+  function loadTasks(){
+    if(!supa) return;
+    supa.from('ailab_tasks').select('*').order('created_at',{ascending:false}).then(function(res){
+      if(res.error){ console.warn('[ailab] load error', res.error.message); return; }
+      renderTasks(res.data||[]);
+    });
+  }
+  function clearForm(){ $('p-title').value=''; $('p-desc').value=''; $('p-due').value=''; $('p-hint').classList.remove('show'); }
+
+  $('p-post').addEventListener('click',function(){
+    var t=$('p-title').value.trim(), d=$('p-desc').value.trim(),
+        a=$('p-author').value, s=$('p-status').value, due=$('p-due').value.trim();
+    if(!t){ $('p-title').focus(); return; }
+    var rec={title:t, body:(d||null), author:a, status:s, due:(due||null), source:(a==='Claude'?'claude':'manual')};
+    if(supa){
+      var btn=$('p-post'); btn.disabled=true; btn.textContent='保存中…';
+      supa.from('ailab_tasks').insert(rec).then(function(res){
+        btn.disabled=false; btn.textContent='投稿する';
+        if(res.error){ alert('保存に失敗しました: '+res.error.message); return; }
+        clearForm(); loadTasks();
+      });
+    } else {
+      var card=makeCard(rec);
+      poster.insertAdjacentElement('afterend',card);
+      if(card.animate) card.animate([{opacity:0,transform:'translateY(-8px)'},{opacity:1,transform:'none'}],{duration:240,easing:'ease'});
+      clearForm(); countEl.textContent=todoCol.querySelectorAll('.card').length;
+    }
+  });
+
+  $('p-claude').addEventListener('click',function(){
+    $('p-author').value='Claude'; $('p-hint').classList.add('show');
+    if(!$('p-title').value.trim()){
+      $('p-title').value='レインズ成約データの自動取得';
+      $('p-desc').value='成約事例をAPI/クロールで取得し、査定書づくりに活用できるようにする。';
+      $('p-status').value='未着手';
+    }
+    $('p-title').focus();
+  });
+
+  var search=$('kb-search'), doneCol=search.closest('.col'),
+      doneBody=doneCol.querySelector('.col-body'),
+      cards=[].slice.call(doneCol.querySelectorAll('.card'));
+  var empty=document.createElement('div'); empty.className='empty'; empty.textContent='該当なし'; doneBody.appendChild(empty);
+  search.addEventListener('input',function(){
+    var q=search.value.trim().toLowerCase(), shown=0;
+    cards.forEach(function(c){ var hit=!q||c.textContent.toLowerCase().indexOf(q)>=0; c.style.display=hit?'':'none'; if(hit&&q)shown++; });
+    empty.style.display=(q&&shown===0)?'block':'none';
+  });
+  doneCol.addEventListener('click',function(e){
+    if(e.target.classList.contains('tag')){ search.value=e.target.textContent.trim().replace(/^#/,''); search.dispatchEvent(new Event('input')); search.focus(); }
+  });
+
+  // AIマッチング提案ポップアップ
+  var toast=$('toast');
+  function showToast(){ toast.classList.add('show'); }
+  function hideToast(){ toast.classList.remove('show'); }
+  $('toast-x').addEventListener('click',hideToast);
+  $('matchbtn').addEventListener('click',showToast);
+  [].forEach.call(toast.querySelectorAll('.mini.skip'),function(b){ b.addEventListener('click',hideToast); });
+  [].forEach.call(toast.querySelectorAll('.mini.go'),function(b){
+    b.addEventListener('click',function(){
+      var name=b.getAttribute('data-task');
+      var hit=[].slice.call(todoCol.querySelectorAll('.card .title')).filter(function(t){return t.textContent.trim()===name;})[0];
+      hideToast();
+      if(hit){ var card=hit.closest('.card'); card.scrollIntoView({behavior:'smooth',block:'center'}); card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash'); }
+    });
+  });
+  setTimeout(showToast, 1400);
+
+  // 起動時：DBに接続できたら、課題列を実データに差し替えて表示
+  loadTasks();
+
+  // AIニュース（RSS自動取得：Supabase Edge Function 経由）
+  var newsList=$('news-list'), newsStatus=$('news-status');
+  function timeAgo(ts){
+    if(!ts) return '';
+    var s=Math.floor((Date.now()-ts)/1000);
+    if(s<60) return 'たった今';
+    if(s<3600) return Math.floor(s/60)+'分前';
+    if(s<86400) return Math.floor(s/3600)+'時間前';
+    if(s<604800) return Math.floor(s/86400)+'日前';
+    var d=new Date(ts); return (d.getMonth()+1)+'/'+d.getDate();
+  }
+  function loadNews(){
+    if(!newsList) return;
+    fetch(SUPA_URL+'/functions/v1/ai-news').then(function(r){return r.json();}).then(function(d){
+      var items=(d&&d.items)||[];
+      if(!items.length){ if(newsStatus){newsStatus.style.display='block'; newsStatus.textContent='ニュースを取得できませんでした';} return; }
+      if(newsStatus) newsStatus.style.display='none';
+      newsList.innerHTML='';
+      items.forEach(function(it){
+        var el=document.createElement('div'); el.className='news-item';
+        var badge=((it.source||'?').trim().charAt(0)||'?').toUpperCase();
+        el.innerHTML='<span class="src"><span class="badge">'+esc(badge)+'</span>'+esc(it.source||'')+'</span>'+
+          '<a class="headline" href="'+esc(it.link||'#')+'" target="_blank" rel="noopener noreferrer">'+esc(it.title||'')+'</a>'+
+          '<p class="time">'+esc(timeAgo(it.ts))+'</p>';
+        newsList.appendChild(el);
+      });
+    }).catch(function(){
+      if(newsStatus){ newsStatus.style.display='block'; newsStatus.textContent='ニュース取得でエラー（ネット接続を確認）'; }
+    });
+  }
+  loadNews();
+  setInterval(loadNews, 600000);
+})();
+</script>
+</body>
+</html>
