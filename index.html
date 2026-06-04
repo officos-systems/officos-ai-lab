@@ -277,7 +277,7 @@
   .toast .hd .t{font:800 12px var(--mono); letter-spacing:.12em; text-transform:uppercase; background:linear-gradient(92deg,#cdbcff,#9af0e0); -webkit-background-clip:text; background-clip:text; color:transparent;}
   .toast .x{margin-left:auto; cursor:pointer; color:var(--muted); font-size:18px; line-height:1; padding:0 5px; border-radius:6px;}
   .toast .x:hover{color:var(--ink); background:rgba(255,255,255,.08);}
-  .toast .body{padding:4px 13px 14px; display:flex; flex-direction:column; gap:10px;}
+  .toast .body{padding:4px 13px 14px; display:flex; flex-direction:column; gap:10px; max-height:calc(100vh - 120px); overflow-y:auto;}
   .sug{border:1px solid var(--line); border-radius:12px; padding:11px 12px; background:rgba(255,255,255,.03);}
   .sug .lk{font:600 12px var(--mono); display:flex; align-items:center; gap:7px; flex-wrap:wrap;}
   .sug .lk .task{color:#ff9d8e;}
@@ -293,6 +293,39 @@
   .sug .mini:hover{filter:brightness(1.08);}
   @keyframes flash{0%,100%{box-shadow:0 0 0 0 rgba(255,154,77,0);} 30%{box-shadow:0 0 0 3px rgba(255,154,77,.55), 0 0 30px rgba(255,154,77,.4);}}
   .card.flash{animation:flash 1.4s ease 2;}
+
+  /* AI Match：クリックで展開 → ニュース元表示 ＋ Claude深掘り（追加） */
+  .sug-top{display:flex; align-items:center; gap:8px; cursor:pointer;}
+  .sug-top .lk{flex:1; min-width:0;}
+  .chev{flex:none; color:var(--muted); font-size:11px; transition:transform .2s, color .2s;}
+  .sug-top:hover .chev{color:var(--ink);}
+  .sug.open .chev{transform:rotate(180deg); color:var(--sub);}
+  .detail{display:none; flex-direction:column; gap:9px; margin:0 0 4px;}
+  .sug.open .detail{display:flex;}
+  .srccard{border:1px solid var(--line); border-radius:11px; padding:10px 11px; background:rgba(96,165,250,.05);}
+  .srccard.done{background:rgba(45,212,191,.05);}
+  .srchd{display:flex; align-items:center; gap:8px;}
+  .src.done{color:#5eead4;}
+  .livebadge{font:700 9px var(--mono); letter-spacing:.1em; text-transform:uppercase; color:#5eead4; background:rgba(45,212,191,.12); border:1px solid rgba(45,212,191,.3); border-radius:999px; padding:1px 7px;}
+  .samplebadge{font:700 9px var(--mono); letter-spacing:.04em; color:var(--muted); background:rgba(255,255,255,.05); border:1px solid var(--line); border-radius:999px; padding:1px 7px;}
+  .srccard .headline{font-size:12.5px;}
+  .srccard .time{margin-top:6px;}
+  .srctitle{font:700 12.5px var(--sans); color:var(--ink); margin-bottom:4px;}
+  .srcdesc{font-size:12px; color:var(--sub); line-height:1.55; margin:0 0 9px;}
+  .digrow{display:flex;}
+  .mini.dig{color:#cdbcff; background:rgba(167,139,250,.14); border:1px solid rgba(167,139,250,.34);}
+  .mini.dig:hover{background:rgba(167,139,250,.22);}
+  .mini.gotodone{color:#5eead4; background:rgba(45,212,191,.12); border:1px solid rgba(45,212,191,.3);}
+  .mini.copy{color:#06140f; background:linear-gradient(135deg,var(--done1),var(--done2));}
+  .draft{display:none; flex-direction:column; gap:7px;}
+  .draft.show{display:flex;}
+  .draft textarea{width:100%; min-height:132px; resize:vertical; background:rgba(0,0,0,.3); color:var(--ink); border:1px solid var(--line); border-radius:10px; padding:9px 11px; font:500 11.5px var(--mono); line-height:1.62; outline:none;}
+  .draft textarea:focus{border-color:rgba(167,139,250,.5); box-shadow:0 0 0 3px rgba(167,139,250,.14);}
+  .draftacts{display:flex; align-items:center; gap:9px;}
+  .copied{font:600 11px var(--mono); color:#5eead4; opacity:0; transition:opacity .2s;}
+  .copied.show{opacity:1;}
+  .dnote{font:500 11px var(--mono); color:var(--muted); line-height:1.6; margin:0;}
+  .dnote b{color:#cdbcff;}
 
   /* ===== 3列を各々独立スクロール（PC幅。狭い画面では従来どおりページ全体スクロール） ===== */
   @media(min-width:481px){
@@ -507,18 +540,7 @@
 <div class="toast" id="toast">
   <div class="bar"></div>
   <div class="hd"><span class="spark"></span><span class="t">AI Match ・ 提案</span><span class="x" id="toast-x">×</span></div>
-  <div class="body">
-    <div class="sug">
-      <div class="lk"><span class="task">土地バンクAPI連携</span><span class="arr">←</span><span class="from news">AIニュース</span></div>
-      <div class="why">「MCPで外部API接続が簡単に」のニュースが、この課題（外部API連携の調査）に使えそうです。</div>
-      <div class="acts"><button class="mini skip" type="button">後で</button><button class="mini go" type="button" data-task="土地バンクAPI連携">課題を見る</button></div>
-    </div>
-    <div class="sug">
-      <div class="lk"><span class="task">日報・紹介テーブルの新設</span><span class="arr">←</span><span class="from done">出来た事</span></div>
-      <div class="why">過去の「売買SPAを実DBに合わせて書き換え」の手順が、この新設作業に流用できそうです。</div>
-      <div class="acts"><button class="mini skip" type="button">後で</button><button class="mini go" type="button" data-task="日報・紹介テーブルの新設">課題を見る</button></div>
-    </div>
-  </div>
+  <div class="body" id="match-body"></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -612,19 +634,154 @@
 
   // AIマッチング提案ポップアップ
   var toast=$('toast');
+  var newsItems=[];               // 右列のAIニュース（loadNewsで実データが入る）
   function showToast(){ toast.classList.add('show'); }
   function hideToast(){ toast.classList.remove('show'); }
   $('toast-x').addEventListener('click',hideToast);
   $('matchbtn').addEventListener('click',showToast);
-  [].forEach.call(toast.querySelectorAll('.mini.skip'),function(b){ b.addEventListener('click',hideToast); });
-  [].forEach.call(toast.querySelectorAll('.mini.go'),function(b){
-    b.addEventListener('click',function(){
-      var name=b.getAttribute('data-task');
-      var hit=[].slice.call(todoCol.querySelectorAll('.card .title')).filter(function(t){return t.textContent.trim()===name;})[0];
-      hideToast();
-      if(hit){ var card=hit.closest('.card'); card.scrollIntoView({behavior:'smooth',block:'center'}); card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash'); }
+
+  // マッチ候補（本番ではDB／自動マッチに差し替え予定。今はサンプル）
+  var MATCHES=[
+    {
+      task:'土地バンクAPI連携',
+      taskDesc:'外部APIの仕様確認がまだ。どの項目が取れるか調査が必要。',
+      type:'news',
+      why:'「MCPで外部API接続が簡単に」のニュースが、この課題（外部API連携の調査）に使えそうです。',
+      q:['MCP','外部API','API連携','コネクタ','API'],
+      fallback:{outlet:'Business Insider Japan', headline:'Claudeを使って4時間でポストカードビジネスを構築 — MCPで外部API接続が簡単に', link:'https://www.businessinsider.jp/'}
+    },
+    {
+      task:'日報・紹介テーブルの新設',
+      taskDesc:'売買UIで日報・紹介を扱うのに、保存先のテーブルがまだ無い。',
+      type:'done',
+      why:'過去の「売買SPAを実DBに合わせて書き換え」の手順が、この新設作業に流用できそうです。',
+      doneTitle:'売買SPAを実DBに合わせて書き換え',
+      doneDesc:'勤怠・経費・有給・カレンダー・通知を本番テーブル準拠に修正。画面と実データのズレを解消。'
+    }
+  ];
+
+  function findCardByTitle(col,name){
+    var els=[].slice.call(col.querySelectorAll('.card .title'));
+    for(var i=0;i<els.length;i++){ if(els[i].textContent.trim()===name) return els[i].closest('.card'); }
+    return null;
+  }
+  function flashCard(card){
+    if(!card) return;
+    card.scrollIntoView({behavior:'smooth',block:'center'});
+    card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash');
+  }
+  // 課題に関係しそうな“本物の”ニュースを右列の実データから探す。無ければサンプルを使う
+  function pickNews(m){
+    for(var i=0;i<newsItems.length;i++){
+      var t=newsItems[i].title||'';
+      for(var j=0;j<m.q.length;j++){
+        if(t.indexOf(m.q[j])>=0) return {outlet:newsItems[i].source||'AIニュース', headline:t, link:newsItems[i].link||'#', ts:newsItems[i].ts, live:true};
+      }
+    }
+    return {outlet:m.fallback.outlet, headline:m.fallback.headline, link:m.fallback.link, live:false};
+  }
+  // Claudeに渡す下書き文を作る
+  function buildPrompt(m,s){
+    if(m.type==='news'){
+      return 'AI Matchが見つけた「課題に役立ちそうなニュース」です。次の課題を前に進めるために、このニュースをどう活かせるか具体的に提案してください。\n\n'+
+        '【課題】'+m.task+'\n　'+m.taskDesc+'\n\n'+
+        '【参考ニュース】\n　'+s.outlet+'「'+s.headline+'」\n　'+s.link+'\n\n'+
+        'お願い：\n1. このニュースの要点を3行で\n2. この課題への活かし方（最初の3ステップ）\n3. 着手前に確認すべきこと';
+    }
+    return 'AI Matchの提案です。新しい課題を、過去に解決済みの似た作業の手順を流用して進めたいです。流用できる手順と、今回固有の注意点を教えてください。\n\n'+
+      '【新しい課題】'+m.task+'\n　'+m.taskDesc+'\n\n'+
+      '【流用元（出来た事）】'+m.doneTitle+'\n　'+m.doneDesc+'\n\n'+
+      'お願い：\n1. 流用できる手順を順番に\n2. 今回固有で気をつける点\n3. 最初の一手';
+  }
+  // 展開時に「ニュース元」と深掘り欄を組み立てる
+  function buildDetail(m){
+    var html='', pr;
+    if(m.type==='news'){
+      var s=pickNews(m);
+      var badge=((s.outlet||'?').trim().charAt(0)||'?').toUpperCase();
+      html+='<div class="srccard">'+
+        '<div class="srchd"><span class="src"><span class="badge">'+esc(badge)+'</span>'+esc(s.outlet)+'</span>'+
+          (s.live?'<span class="livebadge">live</span>':'<span class="samplebadge">サンプル</span>')+'</div>'+
+        '<a class="headline" href="'+esc(s.link)+'" target="_blank" rel="noopener noreferrer">'+esc(s.headline)+'</a>'+
+        '<p class="time">'+(s.live&&s.ts?esc(timeAgo(s.ts))+' ・ ':'')+'クリックで記事を開く</p>'+
+      '</div>';
+      pr=buildPrompt(m,s);
+    } else {
+      html+='<div class="srccard done">'+
+        '<div class="srchd"><span class="src done">出来た事</span></div>'+
+        '<div class="srctitle">'+esc(m.doneTitle)+'</div>'+
+        '<p class="srcdesc">'+esc(m.doneDesc)+'</p>'+
+        '<button class="mini gotodone" type="button" data-done="'+esc(m.doneTitle)+'">該当の出来た事を見る</button>'+
+      '</div>';
+      pr=buildPrompt(m);
+    }
+    html+='<div class="digrow"><button class="mini dig" type="button">Claudeで深掘り</button></div>'+
+      '<div class="draft">'+
+        '<textarea readonly>'+esc(pr)+'</textarea>'+
+        '<div class="draftacts"><button class="mini copy" type="button">コピー</button><span class="copied">コピーしました</span></div>'+
+        '<p class="dnote">このまま <b>チャットのClaude</b> に貼り付けて送ってください。本番では、このボタンから直接Claudeに送れるようにできます。</p>'+
+      '</div>';
+    return html;
+  }
+  function renderMatches(){
+    var body=$('match-body'); if(!body) return;
+    body.innerHTML='';
+    MATCHES.forEach(function(m,idx){
+      var fromClass=m.type==='news'?'news':'done';
+      var fromLabel=m.type==='news'?'AIニュース':'出来た事';
+      var sug=document.createElement('div'); sug.className='sug'; sug.setAttribute('data-i',idx);
+      sug.innerHTML=
+        '<div class="sug-top">'+
+          '<div class="lk"><span class="task">'+esc(m.task)+'</span><span class="arr">←</span><span class="from '+fromClass+'">'+esc(fromLabel)+'</span></div>'+
+          '<span class="chev">▾</span>'+
+        '</div>'+
+        '<div class="why">'+esc(m.why)+'</div>'+
+        '<div class="detail"></div>'+
+        '<div class="acts"><button class="mini skip" type="button">後で</button><button class="mini go" type="button" data-task="'+esc(m.task)+'">課題を見る</button></div>';
+      body.appendChild(sug);
     });
+    var n=$('matchbtn').querySelector('.n'); if(n) n.textContent=MATCHES.length;
+  }
+  function toggleSug(s){
+    if(!s.getAttribute('data-built')){
+      s.querySelector('.detail').innerHTML=buildDetail(MATCHES[+s.getAttribute('data-i')]);
+      s.setAttribute('data-built','1');
+    }
+    s.classList.toggle('open');
+  }
+  function copyText(text,btn){
+    var tag=btn.parentNode.querySelector('.copied');
+    function ok(){ if(tag){ tag.classList.add('show'); setTimeout(function(){tag.classList.remove('show');},1600); } }
+    function fallback(){
+      var ta=document.createElement('textarea'); ta.value=text;
+      ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta);
+      ta.focus(); ta.select(); try{ document.execCommand('copy'); ok(); }catch(e){} document.body.removeChild(ta);
+    }
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(ok,fallback); }
+    else fallback();
+  }
+
+  toast.addEventListener('click',function(e){
+    var t=e.target;
+    if(t.closest('.mini.skip')){ hideToast(); return; }
+    var go=t.closest('.mini.go');
+    if(go){ hideToast(); flashCard(findCardByTitle(todoCol, go.getAttribute('data-task'))); return; }
+    var gd=t.closest('.gotodone');
+    if(gd){ hideToast(); flashCard(findCardByTitle(doneCol, gd.getAttribute('data-done'))); return; }
+    if(t.closest('.mini.dig')){
+      var draft=t.closest('.sug').querySelector('.draft');
+      draft.classList.toggle('show');
+      if(draft.classList.contains('show')){ var ta=draft.querySelector('textarea'); ta.focus(); ta.select(); }
+      return;
+    }
+    var cp=t.closest('.mini.copy');
+    if(cp){ copyText(cp.closest('.draft').querySelector('textarea').value, cp); return; }
+    if(t.closest('a')) return;                     // 記事リンクはそのまま開く
+    var top=t.closest('.sug-top');
+    if(top){ toggleSug(top.closest('.sug')); return; }
   });
+
+  renderMatches();
   setTimeout(showToast, 1400);
 
   // 起動時：DBに接続できたら、課題列を実データに差し替えて表示
@@ -645,6 +802,7 @@
     if(!newsList) return;
     fetch(SUPA_URL+'/functions/v1/ai-news').then(function(r){return r.json();}).then(function(d){
       var items=(d&&d.items)||[];
+      newsItems=items;                              // マッチのニュース元探索に使う
       if(!items.length){ if(newsStatus){newsStatus.style.display='block'; newsStatus.textContent='ニュースを取得できませんでした';} return; }
       if(newsStatus) newsStatus.style.display='none';
       newsList.innerHTML='';
