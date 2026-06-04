@@ -285,8 +285,13 @@
   .sug .lk .from{padding:1px 7px; border-radius:6px; font-weight:700;}
   .sug .lk .from.news{color:#9db4ff; background:rgba(96,165,250,.12); border:1px solid rgba(96,165,250,.28);}
   .sug .lk .from.done{color:#5eead4; background:rgba(45,212,191,.12); border:1px solid rgba(45,212,191,.28);}
-  .sug .why{font-size:12.5px; color:var(--sub); line-height:1.55; margin:8px 0 9px;}
-  .sug .acts{display:flex; gap:7px; justify-content:flex-end;}
+  .sug .why{font-size:12.5px; color:var(--sub); line-height:1.55; margin:8px 0 9px; cursor:pointer; transition:color .15s;}
+  .sug .why:hover{color:var(--ink);}
+  .sug .acts{display:flex; gap:7px; justify-content:flex-end; align-items:center;}
+  .sug .mini.toggle{margin-right:auto; color:var(--sub); background:rgba(255,255,255,.05); border:1px solid var(--line); display:inline-flex; align-items:center; gap:5px;}
+  .sug .mini.toggle:hover{color:var(--ink);}
+  .sug .mini.toggle .tri{font-size:12px; transition:transform .2s;}
+  .sug.open .mini.toggle .tri{transform:rotate(180deg);}
   .sug .mini{font:700 11.5px var(--sans); border:none; cursor:pointer; border-radius:8px; padding:6px 11px;}
   .sug .mini.go{color:#06140f; background:linear-gradient(135deg,var(--done1),var(--done2));}
   .sug .mini.skip{color:var(--sub); background:rgba(255,255,255,.05); border:1px solid var(--line);}
@@ -297,7 +302,7 @@
   /* AI Match：クリックで展開 → ニュース元表示 ＋ Claude深掘り（追加） */
   .sug-top{display:flex; align-items:center; gap:8px; cursor:pointer;}
   .sug-top .lk{flex:1; min-width:0;}
-  .chev{flex:none; color:var(--muted); font-size:11px; transition:transform .2s, color .2s;}
+  .chev{flex:none; color:var(--muted); font-size:15px; padding:2px 4px; transition:transform .2s, color .2s;}
   .sug-top:hover .chev{color:var(--ink);}
   .sug.open .chev{transform:rotate(180deg); color:var(--sub);}
   .detail{display:none; flex-direction:column; gap:9px; margin:0 0 4px;}
@@ -737,7 +742,7 @@
         '</div>'+
         '<div class="why">'+esc(m.why)+'</div>'+
         '<div class="detail"></div>'+
-        '<div class="acts"><button class="mini skip" type="button">後で</button><button class="mini go" type="button" data-task="'+esc(m.task)+'">課題を見る</button></div>';
+        '<div class="acts"><button class="mini toggle" type="button"><span class="tri">▾</span>開く</button><button class="mini skip" type="button">後で</button><button class="mini go" type="button" data-task="'+esc(m.task)+'">課題を見る</button></div>';
       body.appendChild(sug);
     });
     var n=$('matchbtn').querySelector('.n'); if(n) n.textContent=MATCHES.length;
@@ -748,6 +753,8 @@
       s.setAttribute('data-built','1');
     }
     s.classList.toggle('open');
+    var tg=s.querySelector('.mini.toggle');
+    if(tg){ tg.lastChild.textContent=s.classList.contains('open')?'閉じる':'開く'; }
   }
   function copyText(text,btn){
     var tag=btn.parentNode.querySelector('.copied');
@@ -763,6 +770,7 @@
 
   toast.addEventListener('click',function(e){
     var t=e.target;
+    if(t.closest('.mini.toggle')){ toggleSug(t.closest('.sug')); return; }
     if(t.closest('.mini.skip')){ hideToast(); return; }
     var go=t.closest('.mini.go');
     if(go){ hideToast(); flashCard(findCardByTitle(todoCol, go.getAttribute('data-task'))); return; }
@@ -777,6 +785,8 @@
     var cp=t.closest('.mini.copy');
     if(cp){ copyText(cp.closest('.draft').querySelector('textarea').value, cp); return; }
     if(t.closest('a')) return;                     // 記事リンクはそのまま開く
+    var why=t.closest('.why');                     // 提案文クリックでも開閉
+    if(why){ toggleSug(why.closest('.sug')); return; }
     var top=t.closest('.sug-top');
     if(top){ toggleSug(top.closest('.sug')); return; }
   });
