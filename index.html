@@ -310,6 +310,7 @@
   .src.done{color:#5eead4;}
   .livebadge{font:700 9px var(--mono); letter-spacing:.1em; text-transform:uppercase; color:#5eead4; background:rgba(45,212,191,.12); border:1px solid rgba(45,212,191,.3); border-radius:999px; padding:1px 7px;}
   .samplebadge{font:700 9px var(--mono); letter-spacing:.04em; color:var(--muted); background:rgba(255,255,255,.05); border:1px solid var(--line); border-radius:999px; padding:1px 7px;}
+  .aibadge{font:700 9px var(--mono); letter-spacing:.06em; color:#cdbcff; background:rgba(167,139,250,.14); border:1px solid rgba(167,139,250,.34); border-radius:999px; padding:1px 7px;}
   .srccard .headline{font-size:12.5px;}
   .srccard .time{margin-top:6px;}
   .srctitle{font:700 12.5px var(--sans); color:var(--ink); margin-bottom:4px;}
@@ -623,15 +624,85 @@
 
   var search=$('kb-search'), doneCol=search.closest('.col'),
       doneBody=doneCol.querySelector('.col-body'),
-      cards=[].slice.call(doneCol.querySelectorAll('.card'));
+      kbase=doneCol.querySelector('.kbase'),
+      addBtn=doneCol.querySelector('.add'),
+      doneCount=doneCol.querySelector('.count');
   var empty=document.createElement('div'); empty.className='empty'; empty.textContent='該当なし'; doneBody.appendChild(empty);
   search.addEventListener('input',function(){
     var q=search.value.trim().toLowerCase(), shown=0;
-    cards.forEach(function(c){ var hit=!q||c.textContent.toLowerCase().indexOf(q)>=0; c.style.display=hit?'':'none'; if(hit&&q)shown++; });
+    [].slice.call(doneCol.querySelectorAll('.card')).forEach(function(c){
+      var hit=!q||c.textContent.toLowerCase().indexOf(q)>=0; c.style.display=hit?'':'none'; if(hit&&q)shown++;
+    });
     empty.style.display=(q&&shown===0)?'block':'none';
   });
   doneCol.addEventListener('click',function(e){
     if(e.target.classList.contains('tag')){ search.value=e.target.textContent.trim().replace(/^#/,''); search.dispatchEvent(new Event('input')); search.focus(); }
+  });
+
+  // 出来た事：DBから読み込み（接続できなければHTMLの初期カードのまま）
+  function makeDoneCard(d){
+    var a=d.author||'熊田';
+    var tags=(d.tags||[]).map(function(t){return '<span class="tag">'+esc(t)+'</span>';}).join('');
+    var card=document.createElement('div'); card.className='card';
+    card.innerHTML='<p class="title">'+esc(d.title||'')+'</p>'+
+      (d.body?'<p class="desc">'+esc(d.body)+'</p>':'')+
+      '<div class="meta">'+
+        '<span class="who '+(whoClass[a]||'')+'"><span class="d"></span>'+esc(a)+'</span>'+
+        '<span class="date">'+esc(d.date_label||fmtDate(d.created_at))+'</span>'+
+        '<span class="status s-done">完了</span>'+
+      '</div>'+
+      (tags?'<div class="tags">'+tags+'</div>':'');
+    return card;
+  }
+  function renderDone(rows){
+    [].slice.call(doneCol.querySelectorAll('.card')).forEach(function(c){c.remove();});
+    var frag=document.createDocumentFragment();
+    rows.forEach(function(d){ frag.appendChild(makeDoneCard(d)); });
+    kbase.after(frag);
+    if(doneCount) doneCount.textContent=rows.length;
+  }
+  function loadDone(){
+    if(!supa) return;
+    supa.from('ailab_done').select('*').order('created_at',{ascending:false}).then(function(res){
+      if(res.error){ console.warn('[ailab] done load error', res.error.message); return; }
+      renderDone(res.data||[]);
+    });
+  }
+
+  // 出来た事：その場で追加（ここから蓄積していく）
+  addBtn.addEventListener('click',function(){
+    if(doneCol.querySelector('#done-poster')) return;
+    var f=document.createElement('div'); f.className='poster'; f.id='done-poster';
+    f.innerHTML=
+      '<div class="ttl"><span class="d" style="background:linear-gradient(135deg,var(--done1),var(--done2));box-shadow:0 0 10px rgba(45,212,191,.6)"></span>出来た事を追加</div>'+
+      '<input class="fi" id="d-title" placeholder="タイトル（例：レインズ連携の調査）">'+
+      '<textarea class="fi" id="d-body" placeholder="何ができるようになったか・どう解決したか"></textarea>'+
+      '<div class="row">'+
+        '<select class="fi" id="d-author" aria-label="投稿者"><option value="熊田">投稿者：熊田</option><option value="中村">投稿者：中村</option><option value="石川">投稿者：石川</option><option value="Claude">投稿者：Claude</option></select>'+
+        '<input class="fi" id="d-tags" placeholder="タグ（例：#自動化 #DB）">'+
+      '</div>'+
+      '<div class="btns"><button class="btn ghost" id="d-cancel" type="button">やめる</button><button class="btn primary" id="d-add" type="button">追加する</button></div>';
+    addBtn.before(f);
+    $('d-title').focus();
+    $('d-cancel').addEventListener('click',function(){ f.remove(); });
+    $('d-add').addEventListener('click',function(){
+      var t=$('d-title').value.trim(); if(!t){ $('d-title').focus(); return; }
+      var b=$('d-body').value.trim(), a=$('d-author').value;
+      var tags=$('d-tags').value.trim().split(/[\s,、]+/).filter(Boolean).map(function(x){return x.charAt(0)==='#'?x:'#'+x;});
+      var rec={title:t, body:(b||null), author:a, tags:tags, source:(a==='Claude'?'claude':'manual')};
+      if(supa){
+        var btn=$('d-add'); btn.disabled=true; btn.textContent='保存中…';
+        supa.from('ailab_done').insert(rec).then(function(res){
+          btn.disabled=false; btn.textContent='追加する';
+          if(res.error){ alert('保存に失敗しました: '+res.error.message); return; }
+          f.remove(); loadDone();
+        });
+      } else {
+        rec.created_at=new Date().toISOString();
+        kbase.after(makeDoneCard(rec)); f.remove();
+        if(doneCount) doneCount.textContent=doneCol.querySelectorAll('.card').length;
+      }
+    });
   });
 
   // AIマッチング提案ポップアップ
@@ -642,8 +713,8 @@
   $('toast-x').addEventListener('click',hideToast);
   $('matchbtn').addEventListener('click',showToast);
 
-  // マッチ候補（本番ではDB／自動マッチに差し替え予定。今はサンプル）
-  var MATCHES=[
+  // マッチ候補：通常はDB(ailab_matches)から読み込む。下記はDB未接続時のフォールバック用サンプル
+  var FALLBACK_MATCHES=[
     {
       task:'土地バンクAPI連携',
       taskDesc:'外部APIの仕様確認がまだ。どの項目が取れるか調査が必要。',
@@ -661,6 +732,7 @@
       doneDesc:'勤怠・経費・有給・カレンダー・通知を本番テーブル準拠に修正。画面と実データのズレを解消。'
     }
   ];
+  var MATCHES=FALLBACK_MATCHES;
 
   function findCardByTitle(col,name){
     var els=[].slice.call(col.querySelectorAll('.card .title'));
@@ -699,13 +771,14 @@
   function buildDetail(m){
     var html='', pr;
     if(m.type==='news'){
-      var s=pickNews(m);
+      var s = m.src ? {outlet:m.src.outlet, headline:m.src.headline, link:m.src.link, ts:m.src.ts, kind:'ai'} : pickNews(m);
+      if(!m.src) s.kind = s.live ? 'live' : 'sample';
       var badge=((s.outlet||'?').trim().charAt(0)||'?').toUpperCase();
+      var btag = s.kind==='live' ? '<span class="livebadge">live</span>' : (s.kind==='sample' ? '<span class="samplebadge">サンプル</span>' : '<span class="aibadge">AIマッチ</span>');
       html+='<div class="srccard">'+
-        '<div class="srchd"><span class="src"><span class="badge">'+esc(badge)+'</span>'+esc(s.outlet)+'</span>'+
-          (s.live?'<span class="livebadge">live</span>':'<span class="samplebadge">サンプル</span>')+'</div>'+
-        '<a class="headline" href="'+esc(s.link)+'" target="_blank" rel="noopener noreferrer">'+esc(s.headline)+'</a>'+
-        '<p class="time">'+(s.live&&s.ts?esc(timeAgo(s.ts))+' ・ ':'')+'クリックで記事を開く</p>'+
+        '<div class="srchd"><span class="src"><span class="badge">'+esc(badge)+'</span>'+esc(s.outlet)+'</span>'+btag+'</div>'+
+        '<a class="headline" href="'+esc(s.link||'#')+'" target="_blank" rel="noopener noreferrer">'+esc(s.headline)+'</a>'+
+        '<p class="time">'+(s.ts?esc(timeAgo(s.ts))+' ・ ':'')+'クリックで記事を開く</p>'+
       '</div>';
       pr=buildPrompt(m,s);
     } else {
@@ -787,11 +860,27 @@
     if(top){ toggleSug(top.closest('.sug')); return; }
   });
 
-  renderMatches();
+  // マッチをDB(ailab_matches)から読み込む（無ければサンプルにフォールバック）
+  function loadMatches(){
+    if(!supa){ renderMatches(); return; }
+    supa.from('ailab_matches').select('*').order('score',{ascending:false}).order('created_at',{ascending:false}).then(function(res){
+      if(res.error || !res.data || !res.data.length){ MATCHES=FALLBACK_MATCHES; renderMatches(); return; }
+      MATCHES=res.data.map(function(r){
+        if(r.type==='done'){
+          return {task:r.task_title, taskDesc:r.task_desc, type:'done', why:r.why, doneTitle:r.done_title, doneDesc:r.done_desc};
+        }
+        return {task:r.task_title, taskDesc:r.task_desc, type:'news', why:r.why,
+                src:{outlet:r.src_outlet, headline:r.src_headline, link:r.src_link, ts:r.src_ts}};
+      });
+      renderMatches();
+    });
+  }
+  loadMatches();
   setTimeout(showToast, 1400);
 
-  // 起動時：DBに接続できたら、課題列を実データに差し替えて表示
+  // 起動時：DBに接続できたら、各列を実データに差し替えて表示
   loadTasks();
+  loadDone();
 
   // AIニュース（RSS自動取得：Supabase Edge Function 経由）
   var newsList=$('news-list'), newsStatus=$('news-status');
