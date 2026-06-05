@@ -842,9 +842,9 @@
     if(t.closest('.mini.toggle')){ toggleSug(t.closest('.sug')); return; }
     if(t.closest('.mini.skip')){ hideToast(); return; }
     var go=t.closest('.mini.go');
-    if(go){ hideToast(); flashCard(findCardByTitle(todoCol, go.getAttribute('data-task'))); return; }
+    if(go){ flashCard(findCardByTitle(todoCol, go.getAttribute('data-task'))); return; }
     var gd=t.closest('.gotodone');
-    if(gd){ hideToast(); flashCard(findCardByTitle(doneCol, gd.getAttribute('data-done'))); return; }
+    if(gd){ flashCard(findCardByTitle(doneCol, gd.getAttribute('data-done'))); return; }
     if(t.closest('.mini.dig')){
       var draft=t.closest('.sug').querySelector('.draft');
       draft.classList.toggle('show');
